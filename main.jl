@@ -626,7 +626,7 @@ end
  # settings[:ψ_𝛑] = settings[:ψ_φ] = 0 retrieves variance-agnostic policies,
  # settings[:ε] regulates the joint constraint violation probability, and
  # settings[:σ] regulates the standard deviation of the forecast errors.
-
+ """
 settings = Dict(:ψ_𝛑 => 0, :ψ_φ => 0, :ε => 0.01, :σ => 0.1, :det => false)
 # set network case
 case = "case_48"
@@ -644,3 +644,4 @@ sol_stochastic  = gas_cc(gas_data,lin_res,forecast,settings)
 sol_ofs         = out_of_sample(gas_data,forecast,sol_stochastic)
 # get dual solution to the chance constrained gas network optimization
 sol_dual        = stochastic_dual_solution(gas_data,sol_stochastic,lin_res,forecast,settings)
+"""
