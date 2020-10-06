@@ -10,7 +10,7 @@ using StatsBase
 include("main.jl")
 
 # experiment settings
-settings = Dict(:ψ_𝛑 => 0, :ψ_φ => 0, :ε => 0.01, :σ => 0.1, :det => false)
+settings = Dict(:ψ_𝛑 => 0, :ψ_φ => 0, :ε => 0.01, :σ => 0.1, :det => false, :comp => true, :valv => true)
 # set network case
 case = "case_48"
 # extarct network data
@@ -36,7 +36,7 @@ sum_κ_½_valv_base = sum([sqrt(abs(sol_stochastic[:κ][l])) for l in findall(x-
 sum_κ_½_comp_base = sum([sqrt(abs(sol_stochastic[:κ][l])) for l in findall(x->x>0, gas_data[:κ̅])])
 
 # compute cost-pressure_var trade-offs
-settings = Dict(:ψ_𝛑 => 0, :ψ_φ => 0, :ε => 0.01, :σ => 0.1, :det => false)
+settings = Dict(:ψ_𝛑 => 0, :ψ_φ => 0, :ε => 0.01, :σ => 0.1, :det => false, :comp => true, :valv => true)
 pres_cost_var_trade_offs = DataFrame(ψ_𝛑=Any[],cost=Any[],var_π=Any[],var_φ=Any[],inf=Any[],κ_comp=Any[],κ_valv=Any[],Δϑ_mean=Any[],Δκ_mean=Any[])
 ψ_π = [0.001 0.01 0.1]
 for i in ψ_π
@@ -58,7 +58,7 @@ for i in ψ_π
 end
 
 # compute cost-flow_var trade-offs
-settings = Dict(:ψ_𝛑 => 0, :ψ_φ => 0, :ε => 0.01, :σ => 0.1, :det => false)
+settings = Dict(:ψ_𝛑 => 0, :ψ_φ => 0, :ε => 0.01, :σ => 0.1, :det => false, :comp => true, :valv => true)
 flow_cost_var_trade_offs = DataFrame(ψ_φ=Any[],cost=Any[],var_π=Any[],var_φ=Any[],inf=Any[],κ_comp=Any[],κ_valv=Any[],Δϑ_mean=Any[],Δκ_mean=Any[])
 ψ_φ = [1 10 100]
 for i in ψ_φ
@@ -88,22 +88,72 @@ end
 
 # compute revenues
 # deterministic
-settings = Dict(:ψ_𝛑 => 0, :ψ_φ => 0, :ε => 0.01, :σ => 0.1, :det => true)
+settings = Dict(:ψ_𝛑 => 0, :ψ_φ => 0, :ε => 0.01, :σ => 0.1, :det => true, :comp => true, :valv => true)
 sol_stochastic  = gas_cc(gas_data,lin_res,forecast,settings)
 sol_dual        = stochastic_dual_solution(gas_data,sol_stochastic,lin_res,forecast,settings)
 @info("Deterministic policies:")
 @show sol_dual[:Revenue_decomposition]
 
 # variance-agnostic
-settings = Dict(:ψ_𝛑 => 0, :ψ_φ => 0, :ε => 0.01, :σ => 0.1, :det => false)
+settings = Dict(:ψ_𝛑 => 0, :ψ_φ => 0, :ε => 0.01, :σ => 0.1, :det => false, :comp => true, :valv => true)
 sol_stochastic  = gas_cc(gas_data,lin_res,forecast,settings)
 sol_dual        = stochastic_dual_solution(gas_data,sol_stochastic,lin_res,forecast,settings)
 @info("Variance-agnostic policies:")
 @show sol_dual[:Revenue_decomposition]
 
 # variance-aware
-settings = Dict(:ψ_𝛑 => 0.1, :ψ_φ => 100, :ε => 0.01, :σ => 0.1, :det => false)
+settings = Dict(:ψ_𝛑 => 0.1, :ψ_φ => 100, :ε => 0.01, :σ => 0.1, :det => false, :comp => true, :valv => true)
 sol_stochastic  = gas_cc(gas_data,lin_res,forecast,settings)
 sol_dual        = stochastic_dual_solution(gas_data,sol_stochastic,lin_res,forecast,settings)
 @info("Variance-aware policies:")
 @show sol_dual[:Revenue_decomposition]
+
+#Different assignments of control policies
+cost_var_tradeoff_control_policies = DataFrame(iter=Int[])
+ψ_π = 0.001:0.001:0.1
+#All active
+settings = Dict(:ψ_𝛑 => 0, :ψ_φ => 0, :ε => 0.01, :σ => 0.1, :det => false, :comp => true, :valv => true)
+cost = zeros(length(ψ_π))
+var_ρ  = zeros(length(ψ_π))
+for iter in 1:length(ψ_π)
+    settings[:ψ_𝛑] = ψ_π[iter]
+    sol_stochastic = gas_cc(gas_data,lin_res,forecast,settings)
+    sol_ofs        = out_of_sample(gas_data,forecast,sol_stochastic)
+
+    cost[iter] = sol_stochastic[:cost] / 1000
+    var_ρ[iter] = sum([var(sol_ofs[:ρ][n,:]) for n in gas_data[:N]]) / 1000
+
+    push!(cost_var_tradeoff_control_policies,[iter])
+end
+cost_var_tradeoff_control_policies[!,:cost_all] = cost
+cost_var_tradeoff_control_policies[!,:var_all]  = var_ρ
+#Valves deactivated
+settings = Dict(:ψ_𝛑 => 0, :ψ_φ => 0, :ε => 0.01, :σ => 0.1, :det => false, :comp => true, :valv => false)
+cost = zeros(length(ψ_π))
+var_ρ  = zeros(length(ψ_π))
+for iter in 1:length(ψ_π)
+    settings[:ψ_𝛑] = ψ_π[iter]
+    sol_stochastic = gas_cc(gas_data,lin_res,forecast,settings)
+    sol_ofs        = out_of_sample(gas_data,forecast,sol_stochastic)
+
+    cost[iter] = sol_stochastic[:cost] / 1000
+    var_ρ[iter] = sum([var(sol_ofs[:ρ][n,:]) for n in gas_data[:N]]) / 1000
+end
+cost_var_tradeoff_control_policies[!,:cost_inj_com] = cost
+cost_var_tradeoff_control_policies[!,:var_inj_com]  = var_ρ
+#Valves and compressors deactivated
+settings = Dict(:ψ_𝛑 => 0, :ψ_φ => 0, :ε => 0.01, :σ => 0.1, :det => false, :comp => false, :valv => false)
+cost = zeros(length(ψ_π))
+var_ρ  = zeros(length(ψ_π))
+for iter in 1:length(ψ_π)
+    settings[:ψ_𝛑] = ψ_π[iter]
+    sol_stochastic = gas_cc(gas_data,lin_res,forecast,settings)
+    sol_ofs        = out_of_sample(gas_data,forecast,sol_stochastic)
+
+    cost[iter] = sol_stochastic[:cost] / 1000
+    var_ρ[iter] = sum([var(sol_ofs[:ρ][n,:]) for n in gas_data[:N]]) / 1000
+
+end
+cost_var_tradeoff_control_policies[!,:cost_inj_only] = cost
+cost_var_tradeoff_control_policies[!,:var_inj_only]  = var_ρ
+@show cost_var_tradeoff_control_policies

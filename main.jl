@@ -322,6 +322,8 @@ function gas_cc(gas_data,lin_res,forecast,settings)
     # aux constraints
     @constraint(model, δ̸_β, β[:,forecast[:N_δ̸]] .== 0)
     @constraint(model, δ̸_α, α[:,forecast[:N_δ̸]] .== 0)
+    settings[:comp] == false ? @constraint(model, β[findall(x->x>0, gas_data[:κ̅]),:] .==0) : NaN    #deactivate compressor response
+    settings[:valv] == false ? @constraint(model, β[findall(x->x<0, gas_data[:κ̲]),:] .==0) : NaN    #deactivate valve response
     # solve model
     optimize!(model)
     @info("stochastic model terminates with status: $(termination_status(model))")
@@ -627,7 +629,7 @@ end
  # settings[:ε] regulates the joint constraint violation probability, and
  # settings[:σ] regulates the standard deviation of the forecast errors.
  """
-settings = Dict(:ψ_𝛑 => 0, :ψ_φ => 0, :ε => 0.01, :σ => 0.1, :det => false)
+settings = Dict(:ψ_𝛑 => 0, :ψ_φ => 0, :ε => 0.01, :σ => 0.1, :det => false, :comp => true, :valv => true)
 # set network case
 case = "case_48"
 # extarct network data

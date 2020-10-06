@@ -13,4 +13,4 @@ julia> Pkg.instantiate()
 ```
 
 ## Reproducing experiment results:
-The file `main.jl` contains the various models. Uncommenting the block of code at the end of the file can be used to perform a single run of the various models. This file can be used to explore the code and to study the results of various models under different experimental settings. The file `numerical_experiments.jl` reproduces the results reported in the Table I and Figure 2 of the paper.
+The file `main.jl` contains the various models. Uncommenting the block of code at the end of the file can be used to perform a single run of the various models. This file can be used to explore the code and to study the results of various models under different experimental settings. The file `numerical_experiments.jl` reproduces the results reported in the Table I, Figure 1 and Figure 2 of the paper.

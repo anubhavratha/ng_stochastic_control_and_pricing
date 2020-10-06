@@ -32,3 +32,5 @@ bin
 scip.set
 src/scratch
 .Rproj.user
+output.dat
+#
