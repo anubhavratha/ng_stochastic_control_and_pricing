@@ -626,8 +626,9 @@ end
 # Experiment settings:
  # settings[:det] => true retrieves the deterministic policies,
  # settings[:ψ_𝛑] = settings[:ψ_φ] = 0 retrieves variance-agnostic policies,
- # settings[:ε] regulates the joint constraint violation probability, and
- # settings[:σ] regulates the standard deviation of the forecast errors.
+ # settings[:ε] regulates the joint constraint violation probability,
+ # settings[:σ] regulates the standard deviation of the forecast errors, and
+ # settings[:comp] and settings[:valv] => false deactivates policies for compressors and valves, respectively.
  """
 settings = Dict(:ψ_𝛑 => 0, :ψ_φ => 0, :ε => 0.01, :σ => 0.1, :det => false, :comp => true, :valv => true)
 # set network case
