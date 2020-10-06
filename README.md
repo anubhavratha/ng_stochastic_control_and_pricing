@@ -1,5 +1,5 @@
-# Stochastic Control and Market Design for Natural Gas Networks
-Repository containing case data and code for the paper "Stochastic Control and Market Design for Natural Gas Networks" by Vladimir Dvorkin, Anubhav Ratha, Pierre Pinson and Jalal Kazempour. You can find the paper here: [arxiv.com url here]
+# Stochastic Control and Pricing for Natural Gas Networks
+Repository containing case data and code for the paper "Stochastic Control and Pricing for Natural Gas Networks" by Vladimir Dvorkin, Anubhav Ratha, Pierre Pinson and Jalal Kazempour. You can find the paper here: [arxiv.com url here]
 
 If you use this code or parts of it, please cite this paper.
 
