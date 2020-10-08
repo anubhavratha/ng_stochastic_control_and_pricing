@@ -1,7 +1,7 @@
 # Stochastic Control and Pricing for Natural Gas Networks
-Repository containing case data and code for the paper "Stochastic Control and Pricing for Natural Gas Networks" by Vladimir Dvorkin, Anubhav Ratha, Pierre Pinson and Jalal Kazempour. You can find the paper here: [arxiv.com url here]
+Repository containing case data and code for the paper "Stochastic Control and Pricing for Natural Gas Networks" by Vladimir Dvorkin, Anubhav Ratha, Pierre Pinson and Jalal Kazempour. You can find the paper here: https://arxiv.org/abs/2010.03283
 
-If you use this code or parts of it, please cite this paper.
+If you use this code or parts of it, please cite the above paper.
 
 ## Instructions:
 The numerical experiments presented in the paper are implemented in Julia using the JuMP package. The non-convex problems are solved using the Ipopt solver, while Mosek is used for the convex second-order cone programming problems. Please refer to JuMP documentation on how to set up these solvers. The experiments require Julia 1.4. Information on the packages needed along with their versions are provided in the `Project.toml` file. You can load the packages in a new Julia environment directly using the Julia package manager. Alternatively, you can run the following code:
