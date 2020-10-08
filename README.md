@@ -1,5 +1,5 @@
 # Stochastic Control and Pricing for Natural Gas Networks
-*Market-driven control of uncertain and variable extractions in natural gas networks*
+*Market-driven control of uncertain and variable extractions in natural gas networks using [Julia](https://juliacomputing.com/products/juliapro) and [JuMP](https://github.com/JuliaOpt/JuMP.jl)*
 
 This repository contains data and codes for the paper __Stochastic Control and Pricing for Natural Gas Networks__ by Vladimir Dvorkin, Anubhav Ratha, Pierre Pinson, and Jalal Kazempour. The paper is available on [arXiv](https://arxiv.org/abs/2010.03283). If you use this code or parts of it, please cite the paper.
 
