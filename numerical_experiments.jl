@@ -1,3 +1,4 @@
+#!/usr/bin/env julia
 using CSV, DataFrames
 using JuMP, Ipopt
 using LinearAlgebra
@@ -6,154 +7,85 @@ using Mosek, MosekTools
 using Distributions
 using StatsBase
 
+### load functions
+# data scripts
+include("scr/fun_data.jl")
+include("scr/fun_auxiliary.jl")
+# optimization models + supporting functions
+include("scr/fun_opt_models.jl")
+include("scr/fun_linearization.jl")
+# out-of-sample + projection functions
+include("scr/fun_post_processing.jl")
 
-include("main.jl")
+### experiment settings
+exp_settings = Dict(
+# test case
+:case => "case_48",
+# pressure variance penalty
+:ψ_𝛑 => 0.1,
+# flow variance penalty
+:ψ_φ => 0,
+# prescribed constraint violation probability
+:ε => 0.01,
+# gas extraction standard deviation (% of the nominal level)
+:σ => 0.1,
+# det: true - optimize determenistic policies, false - optimize chance-constrained policies
+:det => false,
+# comp: true - compressor recourse on, false - compressor recourse off
+:comp => true,
+# valv: true - valve recourse on, false - valve recourse off
+:valv => true,
+# proj: true - run projection analysis, false - don't run
+:proj => false,
+# sample compexity
+:S => 1000
+)
 
-# experiment settings
-settings = Dict(:ψ_𝛑 => 0, :ψ_φ => 0, :ε => 0.01, :σ => 0.1, :det => false, :comp => true, :valv => true)
-# set network case
-case = "case_48"
+### display input
+println()
+println("------ Experiment settings ------")
+exp_settings[:det] == true ?
+println("Policy optimization      :     deterministic") :
+println("Policy optimization      :     chance-constrained")
+println("Variance penalty         :     ψ_𝛑 = $(exp_settings[:ψ_𝛑]) ... ψ_φ = $(exp_settings[:ψ_φ])")
+println("Violation probability    :     ε = $(exp_settings[:ε])")
+println("Standard deviation       :     σ = $(exp_settings[:σ])")
+println("Active pipeline recourse :     comp = $(exp_settings[:comp]) ... valve = $(exp_settings[:valv])")
+println("Out of sample setting    :     proj = $(exp_settings[:proj]) ... S = $(exp_settings[:S])")
+
+### run experiment
+println()
+println("------ Run experiment ------")
 # extarct network data
-gas_data        = load_data(case)
+net_data        = load_network_data(exp_settings[:case])
 # solve non-convex gas network optimization
-sol_non_convex  = gas_non_convex(gas_data)
+sol_non_convex  = non_convex_opt(net_data)
 # obtain linearization data
-lin_res         = linearization(gas_data,sol_non_convex[:model])
+lin_res         = linearization(net_data,sol_non_convex[:model])
 # extract forecast data
-forecast        = forecast_data(gas_data,settings)
-# solve chance constrained gas network optimization
-sol_stochastic  = gas_cc(gas_data,lin_res,forecast,settings)
+forecast        = extract_forecast_data(net_data,exp_settings)
+# solve chance-constrained gas network optimization
+sol_stochastic  = chance_con_opt(net_data,lin_res,forecast,exp_settings)
+# get dual solution to the chance-constrained gas network optimization
+sol_dual        = stochastic_dual_solution(net_data,sol_stochastic,lin_res,forecast,exp_settings)
 # run out of sample analysis
-sol_ofs         = out_of_sample(gas_data,forecast,sol_stochastic)
-# get dual solution to the chance constrained gas network optimization
-sol_dual        = stochastic_dual_solution(gas_data,sol_stochastic,lin_res,forecast,settings)
+sol_ofs         = out_of_sample(net_data,forecast,sol_stochastic)
+# run projection analysis
+exp_settings[:proj] == true ? sol_proj        = projection_analysis(net_data,forecast,sol_ofs) : NaN
 
-# base cc solution
-exp_cost_base = sol_stochastic[:cost]
-sum_s_ρ_base = sum([var(sol_ofs[:ρ][n,:]) for n in gas_data[:N]])
-sum_s_φ_base = sum([var(sol_ofs[:φ][l,:]) for l in gas_data[:E]])
-sum_κ_½_valv_base = sum([sqrt(abs(sol_stochastic[:κ][l])) for l in findall(x->x<0, gas_data[:κ̲])])
-sum_κ_½_comp_base = sum([sqrt(abs(sol_stochastic[:κ][l])) for l in findall(x->x>0, gas_data[:κ̅])])
-
-# compute cost-pressure_var trade-offs
-settings = Dict(:ψ_𝛑 => 0, :ψ_φ => 0, :ε => 0.01, :σ => 0.1, :det => false, :comp => true, :valv => true)
-pres_cost_var_trade_offs = DataFrame(ψ_𝛑=Any[],cost=Any[],var_π=Any[],var_φ=Any[],inf=Any[],κ_comp=Any[],κ_valv=Any[],Δϑ_mean=Any[],Δκ_mean=Any[])
-ψ_π = [0.001 0.01 0.1]
-for i in ψ_π
-    settings[:ψ_𝛑] = i
-    sol_stochastic = gas_cc(gas_data,lin_res,forecast,settings)
-    sol_ofs        = out_of_sample(gas_data,forecast,sol_stochastic)
-    sol_proj       = projection_analysis(gas_data,forecast,sol_ofs)
-
-    exp_cost = sol_stochastic[:cost] / exp_cost_base * 100
-    sum_s_ρ = sum([var(sol_ofs[:ρ][n,:]) for n in gas_data[:N]]) / sum_s_ρ_base * 100
-    sum_s_φ = sum([var(sol_ofs[:φ][l,:]) for l in gas_data[:E]]) / sum_s_φ_base * 100
-    inf_per = sol_ofs[:ε_stat]*100
-    sum_κ_½_valv = round(sum([sqrt(abs(sol_stochastic[:κ][l])) for l in findall(x->x<0, gas_data[:κ̲])]))
-    sum_κ_½_comp = round(sum([sqrt(abs(sol_stochastic[:κ][l])) for l in findall(x->x>0, gas_data[:κ̅])]))
-    Δϑ_mean = sol_proj[1]
-    Δκ_mean = sol_proj[2]
-
-    push!(pres_cost_var_trade_offs,[i,exp_cost,sum_s_ρ,sum_s_φ,inf_per,sum_κ_½_comp,sum_κ_½_valv,Δϑ_mean,Δκ_mean])
-end
-
-# compute cost-flow_var trade-offs
-settings = Dict(:ψ_𝛑 => 0, :ψ_φ => 0, :ε => 0.01, :σ => 0.1, :det => false, :comp => true, :valv => true)
-flow_cost_var_trade_offs = DataFrame(ψ_φ=Any[],cost=Any[],var_π=Any[],var_φ=Any[],inf=Any[],κ_comp=Any[],κ_valv=Any[],Δϑ_mean=Any[],Δκ_mean=Any[])
-ψ_φ = [1 10 100]
-for i in ψ_φ
-    settings[:ψ_φ] = i
-    sol_stochastic = gas_cc(gas_data,lin_res,forecast,settings)
-    sol_ofs        = out_of_sample(gas_data,forecast,sol_stochastic)
-    sol_proj       = projection_analysis(gas_data,forecast,sol_ofs)
-
-    exp_cost = sol_stochastic[:cost]/exp_cost_base*100
-    sum_s_ρ = sum([var(sol_ofs[:ρ][n,:]) for n in gas_data[:N]])/sum_s_ρ_base*100
-    sum_s_φ = sum([var(sol_ofs[:φ][l,:]) for l in gas_data[:E]])/sum_s_φ_base*100
-    inf_per = sol_ofs[:ε_stat]*100
-    sum_κ_½_valv = round(sum([sqrt(abs(sol_stochastic[:κ][l])) for l in findall(x->x<0, gas_data[:κ̲])]))
-    sum_κ_½_comp = round(sum([sqrt(abs(sol_stochastic[:κ][l])) for l in findall(x->x>0, gas_data[:κ̅])]))
-    Δϑ_mean = sol_proj[1]
-    Δκ_mean = sol_proj[2]
-
-    push!(flow_cost_var_trade_offs,[i,exp_cost,sum_s_ρ,sum_s_φ,inf_per,sum_κ_½_comp,sum_κ_½_valv,Δϑ_mean,Δκ_mean])
-end
-
-@info("Pressure variance-aware results:")
-@show pres_cost_var_trade_offs
-
-@info("Flow variance-aware results:")
-@show flow_cost_var_trade_offs
-
-
-# compute revenues
-# deterministic
-settings = Dict(:ψ_𝛑 => 0, :ψ_φ => 0, :ε => 0.01, :σ => 0.1, :det => true, :comp => true, :valv => true)
-sol_stochastic  = gas_cc(gas_data,lin_res,forecast,settings)
-sol_dual        = stochastic_dual_solution(gas_data,sol_stochastic,lin_res,forecast,settings)
-@info("Deterministic policies:")
-@show sol_dual[:Revenue_decomposition]
-
-# variance-agnostic
-settings = Dict(:ψ_𝛑 => 0, :ψ_φ => 0, :ε => 0.01, :σ => 0.1, :det => false, :comp => true, :valv => true)
-sol_stochastic  = gas_cc(gas_data,lin_res,forecast,settings)
-sol_dual        = stochastic_dual_solution(gas_data,sol_stochastic,lin_res,forecast,settings)
-@info("Variance-agnostic policies:")
-@show sol_dual[:Revenue_decomposition]
-
-# variance-aware
-settings = Dict(:ψ_𝛑 => 0.1, :ψ_φ => 100, :ε => 0.01, :σ => 0.1, :det => false, :comp => true, :valv => true)
-sol_stochastic  = gas_cc(gas_data,lin_res,forecast,settings)
-sol_dual        = stochastic_dual_solution(gas_data,sol_stochastic,lin_res,forecast,settings)
-@info("Variance-aware policies:")
-@show sol_dual[:Revenue_decomposition]
-
-#Different assignments of control policies
-cost_var_tradeoff_control_policies = DataFrame(iter=Int[])
-ψ_π = 0.001:0.001:0.1
-#All active
-settings = Dict(:ψ_𝛑 => 0, :ψ_φ => 0, :ε => 0.01, :σ => 0.1, :det => false, :comp => true, :valv => true)
-cost = zeros(length(ψ_π))
-var_ρ  = zeros(length(ψ_π))
-for iter in 1:length(ψ_π)
-    settings[:ψ_𝛑] = ψ_π[iter]
-    sol_stochastic = gas_cc(gas_data,lin_res,forecast,settings)
-    sol_ofs        = out_of_sample(gas_data,forecast,sol_stochastic)
-
-    cost[iter] = sol_stochastic[:cost] / 1000
-    var_ρ[iter] = sum([var(sol_ofs[:ρ][n,:]) for n in gas_data[:N]]) / 1000
-
-    push!(cost_var_tradeoff_control_policies,[iter])
-end
-cost_var_tradeoff_control_policies[!,:cost_all] = cost
-cost_var_tradeoff_control_policies[!,:var_all]  = var_ρ
-#Valves deactivated
-settings = Dict(:ψ_𝛑 => 0, :ψ_φ => 0, :ε => 0.01, :σ => 0.1, :det => false, :comp => true, :valv => false)
-cost = zeros(length(ψ_π))
-var_ρ  = zeros(length(ψ_π))
-for iter in 1:length(ψ_π)
-    settings[:ψ_𝛑] = ψ_π[iter]
-    sol_stochastic = gas_cc(gas_data,lin_res,forecast,settings)
-    sol_ofs        = out_of_sample(gas_data,forecast,sol_stochastic)
-
-    cost[iter] = sol_stochastic[:cost] / 1000
-    var_ρ[iter] = sum([var(sol_ofs[:ρ][n,:]) for n in gas_data[:N]]) / 1000
-end
-cost_var_tradeoff_control_policies[!,:cost_inj_com] = cost
-cost_var_tradeoff_control_policies[!,:var_inj_com]  = var_ρ
-#Valves and compressors deactivated
-settings = Dict(:ψ_𝛑 => 0, :ψ_φ => 0, :ε => 0.01, :σ => 0.1, :det => false, :comp => false, :valv => false)
-cost = zeros(length(ψ_π))
-var_ρ  = zeros(length(ψ_π))
-for iter in 1:length(ψ_π)
-    settings[:ψ_𝛑] = ψ_π[iter]
-    sol_stochastic = gas_cc(gas_data,lin_res,forecast,settings)
-    sol_ofs        = out_of_sample(gas_data,forecast,sol_stochastic)
-
-    cost[iter] = sol_stochastic[:cost] / 1000
-    var_ρ[iter] = sum([var(sol_ofs[:ρ][n,:]) for n in gas_data[:N]]) / 1000
-
-end
-cost_var_tradeoff_control_policies[!,:cost_inj_only] = cost
-cost_var_tradeoff_control_policies[!,:var_inj_only]  = var_ρ
-@show cost_var_tradeoff_control_policies
+### display output
+println()
+println("------ Experiment results ------")
+println("Expected cost (\$)              :   $(round(sol_stochastic[:cost],digits=1))")
+println("Total pressure variance (MPa²) :   $(round(sum([var(sol_ofs[:ρ][n,:]) for n in net_data[:N]]),digits=1))")
+println("Total flow variance (BMSCFD²)  :   $(round(sum([var(sol_ofs[:φ][l,:]) for l in net_data[:E]]),digits=1))")
+println("Average comp deployment (kPa)  :   $(round(sum([sqrt(abs(sol_stochastic[:κ][l])) for l in findall(x->x>0, net_data[:κ̅])])))")
+println("Average valv deployment (kPa)  :   $(round(sum([sqrt(abs(sol_stochastic[:κ][l])) for l in findall(x->x<0, net_data[:κ̲])])))")
+println("Emp. constraint violation (%)  :   $(round(sol_ofs[:ε_stat]*100,digits=5))")
+exp_settings[:proj] == true ?
+println("Average injection proj (MMSCFD) :   $(round(sol_proj[:Δϑ_mean],digits=3))") : NaN
+exp_settings[:proj] == true ?
+println("Average regulation proj (kPa)   :   $(round(sol_proj[:Δκ_mean],digits=3))") : NaN
+println("Total revenue of suppliers (\$) :   $(round(sol_dual[:R_inj],digits=3))")
+println("Total revenue of act. pipes (\$):   $(round(sol_dual[:R_act],digits=3))")
+println("Total revenue of consumers (\$) :   $(round(sol_dual[:R_con],digits=3))")
