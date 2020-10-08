@@ -1,4 +1,6 @@
 # Stochastic Control and Pricing for Natural Gas Networks
+*Market-driven control of uncertain and variable extractions in natural gas networks*
+
 This repository contains data and codes for the paper __Stochastic Control and Pricing for Natural Gas Networks__ by Vladimir Dvorkin, Anubhav Ratha, Pierre Pinson, and Jalal Kazempour. The paper is available on [arXiv](https://arxiv.org/abs/2010.03283). If you use this code or parts of it, please cite the paper.
 
 <img width="875" alt="Screenshot 2020-10-08 at 10 30 54" src="https://user-images.githubusercontent.com/31773955/95434288-5cde3700-0951-11eb-8f01-93e0028da668.png">
