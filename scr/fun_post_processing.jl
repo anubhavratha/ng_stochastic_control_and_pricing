@@ -64,7 +64,7 @@ function projection_opt(net_data,forecast,sol_ofs,s)
     @constraint(model, com_lim_max[i=net_data[:E]], κ[i] <= net_data[:κ̅][i])
     @constraint(model, com_lim_min[i=net_data[:E]], κ[i] >= net_data[:κ̲][i])
     # gas flow equations
-    @constraint(model, w_eq, φ .== lin_res[:ς1] + lin_res[:ς2] * 𝛑 + lin_res[:ς3] * κ)
+    @NLconstraint(model, w_eq[l=net_data[:E]], φ[l]*abs(φ[l]) - net_data[:k][l]^2 *(𝛑[ns(l)] + κ[l] - 𝛑[nr(l)]) == 0)
     @constraint(model, gas_bal, ϑ .- net_data[:δ] .- forecast[:ξ][:,s] .- net_data[:B]*κ .== net_data[:A]*φ)
     @constraint(model, φ_pl[l=net_data[:E_a]], φ[l] >= 0)
     @constraint(model, 𝛑[net_data[:ref]] == lin_res[:𝛑̇][net_data[:ref]])
