@@ -24,6 +24,5 @@ By default, the program outputs:
 
 <img width="677" alt="Screenshot 2020-10-08 at 10 57 57" src="https://user-images.githubusercontent.com/31773955/95437348-286c7a00-0955-11eb-9e77-8d7745f8c09f.png">
 
-
 ## Reproducing results:
 To reproduce the results, specify the experiment settings in ```exp_settings``` dictionary contained in ```main.jl```. The experiment settings are detailed in Section V of the paper. To run the projection analisys, set ```:proj => true``` in the dictionary, but expect more running time.
